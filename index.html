@@ -5,16 +5,69 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Tabla de Puntos - 1ero B</title>
 <style>
-  body{font-family:"Comic Sans MS","Comic Sans","Comic Neue",cursive;background:#fff;color:#111;margin:0;text-align:center}
-  h1{margin:18px 0 6px;font-size:32px}
-  #fecha{margin:16px auto 10px;padding:8px 12px;border:1px solid #e5e5e5;border-radius:10px;background:#f7f7f7;font-weight:bold}
-  .controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:8px 0}
-  .controls input{padding:8px 10px;border:1px solid #d0d0d0;border-radius:8px}
-  .toggle{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid #e0e0e0;border-radius:999px;background:#fafafa}
-  #status{font-size:14px;color:#666;margin:6px 0 12px}
-  table{width:96%;max-width:1200px;margin:auto;border-collapse:collapse;border:1px solid #e0e0e0;background:#fff}
-  th,td{border:1px solid #d6d6d6;padding:10px;text-align:center}
-  thead th{background:gold;position:sticky;top:0}
+  body{
+    font-family:"Comic Sans MS","Comic Sans","Comic Neue",cursive;
+    background:#fff;
+    color:#111;
+    margin:0;
+    text-align:center
+  }
+  h1{
+    margin:18px 0 6px;
+    font-size:32px
+  }
+  #fecha{
+    margin:16px auto 10px;
+    padding:8px 12px;
+    border:1px solid #e5e5e5;
+    border-radius:10px;
+    background:#f7f7f7;
+    font-weight:bold
+  }
+  .controls{
+    display:flex;
+    gap:10px;
+    justify-content:center;
+    flex-wrap:wrap;
+    margin:8px 0
+  }
+  .controls input{
+    padding:8px 10px;
+    border:1px solid #d0d0d0;
+    border-radius:8px
+  }
+  .toggle{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:6px 10px;
+    border:1px solid #e0e0e0;
+    border-radius:999px;
+    background:#fafafa
+  }
+  #status{
+    font-size:14px;
+    color:#666;
+    margin:6px 0 12px
+  }
+  table{
+    width:96%;
+    max-width:1200px;
+    margin:auto;
+    border-collapse:collapse;
+    border:1px solid #e0e0e0;
+    background:#fff
+  }
+  th,td{
+    border:1px solid #d6d6d6;
+    padding:10px;
+    text-align:center
+  }
+  thead th{
+    background:gold;
+    position:sticky;
+    top:0
+  }
 </style>
 </head>
 <body>
@@ -24,7 +77,10 @@
   <div class="controls">
     <input type="date" id="filtroFecha" onchange="render()"/>
     <input type="text" id="buscador" placeholder="Buscar alumno..." onkeyup="filtrarTabla()"/>
-    <label class="toggle"><input type="checkbox" id="mostrarTodos" onchange="render()"/>Mostrar todos</label>
+    <label class="toggle">
+      <input type="checkbox" id="mostrarTodos" onchange="render()"/>
+      Mostrar todos
+    </label>
   </div>
 
   <div id="status">Cargando datos…</div>
@@ -47,64 +103,75 @@
   </table>
 
 <script>
-const SHEET_ID="1kapF-_njiRV8aTTADXhOprHvoUFXg74lE93wl54j4qI";
+/* =========================
+   CONFIGURACIÓN CORRECTA
+   ========================= */
+const SHEET_ID = "1kapF-_njiRV8aTTADXhOprHvoUFXg74lE93wl54j4qI";
 
-const GID_PUNTOS="0";
-const GID_ASISTENCIA="1488687689";
-const GID_REG_TRABAJOS="1051341664";
-const GID_PRESETS="1645658317";
+const GID_PUNTOS       = "0";
+const GID_ASISTENCIA   = "1488687689";
+const GID_REG_TRABAJOS = "1051341664";
+const GID_PRESETS      = "1645658317";
+/* ========================= */
 
-let puntosData=[];
-let asistenciaData=[];
-let asistencia={};
+let puntosData = [];
+let asistenciaData = [];
+let asistencia = {};
 
-function setStatus(t){document.getElementById("status").textContent=t}
+function setStatus(t){
+  document.getElementById("status").textContent = t;
+}
 
 function hoyISO(){
-  const d=new Date();
+  const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
 function actualizarCabecera(){
   document.getElementById("fecha").innerHTML =
-    `📅 Hoy es: <b>${new Date().toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</b>`;
+    `📅 Hoy es: <b>${new Date().toLocaleDateString('es-ES',{
+      weekday:'long',
+      year:'numeric',
+      month:'long',
+      day:'numeric'
+    })}</b>`;
 }
 
 function obtenerRango(p){
-  if(p>=90)return"🌈🔥 Gran maestro arcoiris";
-  if(p>=80)return"🌈 Heroico arcoiris";
-  if(p>=70)return"🟠🔥 Heroico élite";
-  if(p>=60)return"🟡 Heroico";
-  if(p>=50)return"🔴 Gran Maestro";
-  if(p>=40)return"🟠 Maestro";
-  if(p>=30)return"🟣 Experto";
-  if(p>=20)return"🔵 Avanzado";
-  if(p>=10)return"🟢 Trabajador";
-  return"⚪ Sin rango";
+  if(p>=90) return "🌈🔥 Gran maestro arcoiris";
+  if(p>=80) return "🌈 Heroico arcoiris";
+  if(p>=70) return "🟠🔥 Heroico élite";
+  if(p>=60) return "🟡 Heroico";
+  if(p>=50) return "🔴 Gran Maestro";
+  if(p>=40) return "🟠 Maestro";
+  if(p>=30) return "🟣 Experto";
+  if(p>=20) return "🔵 Avanzado";
+  if(p>=10) return "🟢 Trabajador";
+  return "⚪ Sin rango";
 }
 
 function obtenerRecompensas(p){
-  let r="✨";
-  for(let i=0;i<Math.floor(p/30);i++)r+="🌟";
-  for(let i=0;i<Math.floor((p%30)/10);i++)r+="⭐";
-  if(p>=70)r+=" 🌌";
-  if(p>=90)r+=" 🌈";
+  let r = "✨";
+  for(let i=0; i<Math.floor(p/30); i++) r += "🌟";
+  for(let i=0; i<Math.floor((p%30)/10); i++) r += "⭐";
+  if(p>=70) r += " 🌌";
+  if(p>=90) r += " 🌈";
   return r;
 }
 
 function filtrarTabla(){
-  const f=document.getElementById("filtroFecha").value;
-  const n=(document.getElementById("buscador").value||"").toLowerCase().trim();
+  const f = document.getElementById("filtroFecha").value;
+  const n = (document.getElementById("buscador").value || "").toLowerCase().trim();
 
   document.querySelectorAll("#tablaPuntos tr").forEach(tr=>{
-    const F=tr.cells[0]?.innerText||"";
-    const N=(tr.cells[1]?.innerText||"").toLowerCase();
-    tr.style.display=(!f||F===f)&&(!n||N.includes(n))?"":"none";
+    const F = tr.cells[0]?.innerText || "";
+    const N = (tr.cells[1]?.innerText || "").toLowerCase();
+    tr.style.display = (!f || F===f) && (!n || N.includes(n)) ? "" : "none";
   });
 }
 
 function clean(n){
-  return String(n||"")
+  return String(n || "")
     .toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
     .replace(/\s+/g," ")
@@ -112,12 +179,14 @@ function clean(n){
 }
 
 function parseCSV(csv){
-  const rows=[];
-  let row=[], cell="", inQuotes=false;
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let inQuotes = false;
 
-  for(let i=0;i<csv.length;i++){
-    const ch=csv[i];
-    const next=csv[i+1];
+  for(let i=0; i<csv.length; i++){
+    const ch = csv[i];
+    const next = csv[i+1];
 
     if(ch === '"'){
       if(inQuotes && next === '"'){
@@ -147,17 +216,17 @@ function parseCSV(csv){
 }
 
 async function fetchSheet(gid){
-  const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
-  const res=await fetch(url);
-  if(!res.ok) throw new Error("HTTP "+res.status);
-  const text=await res.text();
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error("HTTP " + res.status);
+  const text = await res.text();
   return parseCSV(text);
 }
 
 function buscarColumnaFecha(headers, fechaISO){
   if(!headers || !headers.length) return -1;
 
-  const [y,m,d]=fechaISO.split("-");
+  const [y,m,d] = fechaISO.split("-");
   const opciones = [
     fechaISO,
     `${d}/${m}/${y}`,
@@ -165,12 +234,13 @@ function buscarColumnaFecha(headers, fechaISO){
     `${y}/${m}/${d}`,
     `${d}/${m}/${String(y).slice(2)}`,
     `${d}-${m}-${String(y).slice(2)}`
-  ].map(x=>x.trim());
+  ].map(x => x.trim());
 
-  for(let i=0;i<headers.length;i++){
-    const h=String(headers[i]||"").trim();
+  for(let i=0; i<headers.length; i++){
+    const h = String(headers[i] || "").trim();
     if(opciones.includes(h)) return i;
   }
+
   return -1;
 }
 
@@ -180,15 +250,16 @@ function buildAsistencia(){
 
   const headers = asistenciaData[0];
 
-  for(let j=1;j<headers.length;j++){
-    const fecha = String(headers[j]||"").trim();
+  for(let j=1; j<headers.length; j++){
+    const fecha = String(headers[j] || "").trim();
     if(!fecha) continue;
 
     asistencia[fecha] = new Set();
 
-    for(let i=1;i<asistenciaData.length;i++){
+    for(let i=1; i<asistenciaData.length; i++){
       const nombre = asistenciaData[i][0];
-      const valor = String(asistenciaData[i][j]||"").trim();
+      const valor = String(asistenciaData[i][j] || "").trim();
+
       if(valor === "1"){
         asistencia[fecha].add(clean(nombre));
       }
@@ -197,11 +268,11 @@ function buildAsistencia(){
 }
 
 function render(){
-  const tbody=document.getElementById("tablaPuntos");
-  tbody.innerHTML="";
+  const tbody = document.getElementById("tablaPuntos");
+  tbody.innerHTML = "";
 
   if(!puntosData.length){
-    tbody.innerHTML=`<tr><td colspan="7">No hay datos de puntos</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7">No hay datos de puntos</td></tr>`;
     return;
   }
 
@@ -212,67 +283,80 @@ function render(){
   const colFechaPuntos = buscarColumnaFecha(headersP, fechaISO);
 
   if(colFechaPuntos === -1){
-    tbody.innerHTML=`<tr><td colspan="7">No encontré esa fecha en la hoja de Puntos</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7">No encontré esa fecha en la hoja de Puntos</td></tr>`;
     setStatus(`No encontré la fecha ${fechaISO} en Puntos.`);
     return;
   }
 
-  let colFechaAsistencia = -1;
   let keyAsistencia = null;
 
   for(const k of Object.keys(asistencia)){
     const idx = buscarColumnaFecha(["", k], fechaISO);
     if(idx !== -1){
       keyAsistencia = k;
-      colFechaAsistencia = 1;
       break;
     }
   }
 
   if(!keyAsistencia){
-    tbody.innerHTML=`<tr><td colspan="7">No encontré esa fecha en la hoja de Asistencia</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7">No encontré esa fecha en la hoja de Asistencia</td></tr>`;
     setStatus(`No encontré la fecha ${fechaISO} en Asistencia.`);
     return;
   }
 
   const presentes = asistencia[keyAsistencia] || new Set();
-  let encontrados = 0;
+  const filas = [];
 
-  for(let i=1;i<puntosData.length;i++){
-    const nombre = puntosData[i][0];
+  for(let i=1; i<puntosData.length; i++){
+    const nombre = String(puntosData[i][0] || "").trim();
     if(!nombre) continue;
 
     const nombreLimpio = clean(nombre);
     const asistio = presentes.has(nombreLimpio);
-    if(!asistio) continue;
 
-    let puntos = parseInt(String(puntosData[i][colFechaPuntos]||"").replace(/[^\d-]/g,""),10);
+    let puntos = parseInt(String(puntosData[i][colFechaPuntos] || "").replace(/[^\d-]/g,""), 10);
     if(Number.isNaN(puntos)) puntos = 0;
 
-    if(puntos === 0 && !mostrarTodos) continue;
+    if(!mostrarTodos && !asistio && puntos === 0) continue;
 
-    encontrados++;
+    filas.push({
+      nombre,
+      asistio,
+      puntos
+    });
+  }
 
+  filas.sort((a,b)=>{
+    if(b.puntos !== a.puntos) return b.puntos - a.puntos;
+    if(a.asistio !== b.asistio) return a.asistio ? -1 : 1;
+    return a.nombre.localeCompare(b.nombre, "es");
+  });
+
+  if(!filas.length){
+    tbody.innerHTML = `<tr><td colspan="7">No hubo alumnos para mostrar en esa fecha</td></tr>`;
+    setStatus(`La fecha existe, pero no hubo coincidencias para mostrar.`);
+    return;
+  }
+
+  for(const fila of filas){
     tbody.innerHTML += `
       <tr>
         <td>${fechaISO}</td>
-        <td>${nombre}</td>
-        <td>✅ Sí</td>
-        <td>${puntos}</td>
-        <td>${puntos>0?"✅ Sí":"❌ No"}</td>
-        <td>${obtenerRango(puntos)}</td>
-        <td>${obtenerRecompensas(puntos)}</td>
+        <td>${fila.nombre}</td>
+        <td>${fila.asistio ? "✅ Sí" : "❌ No"}</td>
+        <td>${fila.puntos}</td>
+        <td>${fila.puntos > 0 ? "✅ Sí" : "❌ No"}</td>
+        <td>${obtenerRango(fila.puntos)}</td>
+        <td>${obtenerRecompensas(fila.puntos)}</td>
       </tr>
     `;
   }
 
-  if(encontrados === 0){
-    tbody.innerHTML=`<tr><td colspan="7">No hubo alumnos para mostrar en esa fecha</td></tr>`;
-    setStatus(`La fecha existe, pero no hubo coincidencias entre asistencia y puntos.`);
-    return;
-  }
+  const total = filas.length;
+  const asistieron = filas.filter(x => x.asistio).length;
+  const faltaron = filas.filter(x => !x.asistio).length;
 
-  setStatus(`Mostrando ${encontrados} alumnos de la fecha ${fechaISO}.`);
+  setStatus(`Mostrando ${total} alumnos. Asistieron ${asistieron} y faltaron ${faltaron}.`);
   filtrarTabla();
 }
 
