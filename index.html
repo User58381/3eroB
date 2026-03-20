@@ -20,12 +20,15 @@
 <body>
   <h1>Tabla de Puntos - 1ero B</h1>
   <div id="fecha"></div>
+
   <div class="controls">
     <input type="date" id="filtroFecha" onchange="render()"/>
     <input type="text" id="buscador" placeholder="Buscar alumno..." onkeyup="filtrarTabla()"/>
-    <label class="toggle"><input type="checkbox" id="mostrarTodos" onchange="render()"/>Mostrar todos (incluye sin puntos)</label>
+    <label class="toggle"><input type="checkbox" id="mostrarTodos" onchange="render()"/>Mostrar todos</label>
   </div>
+
   <div id="status">Cargando datos…</div>
+
   <table>
     <thead>
       <tr>
@@ -44,132 +47,133 @@
   </table>
 
 <script>
-const SHEET_ID="1m6o9_JJ9bjV7Cf72jF0oT9pLnTUUiQdYdhxVQXUZuWM";
+/* =========================
+   CONFIG CORRECTA
+   ========================= */
+const SHEET_ID="1kapF-_njiRV8aTTADXhOprHvoUFXg74lE93wl54j4qI";
 
 const GID_PUNTOS="0";
 const GID_ASISTENCIA="1488687689";
 const GID_REG_TRABAJOS="1051341664";
 const GID_PRESETS="1645658317";
+/* ========================= */
 
-function setStatus(t){const el=document.getElementById("status");if(el)el.textContent=t}
-function hoyISO(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
-function actualizarCabecera(){document.getElementById("fecha").innerHTML=`📅 Hoy es: <b>${new Date().toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</b>`}
+function setStatus(t){document.getElementById("status").textContent=t}
+
+function hoyISO(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`
+}
+
+function actualizarCabecera(){
+  document.getElementById("fecha").innerHTML=
+  `📅 Hoy es: <b>${new Date().toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</b>`
+}
 
 function obtenerRango(p){
-if(p>=90)return"🌈🔥 Gran maestro arcoiris";
-if(p>=80)return"🌈 Heroico arcoiris";
-if(p>=70)return"🟠🔥 Heroico élite";
-if(p>=60)return"🟡 Heroico";
-if(p>=50)return"🔴 Gran Maestro";
-if(p>=40)return"🟠 Maestro";
-if(p>=30)return"🟣 Experto";
-if(p>=20)return"🔵 Avanzado";
-if(p>=10)return"🟢 Trabajador";
-return"⚪ Sin rango";
+  if(p>=90)return"🌈🔥 Gran maestro arcoiris";
+  if(p>=80)return"🌈 Heroico arcoiris";
+  if(p>=70)return"🟠🔥 Heroico élite";
+  if(p>=60)return"🟡 Heroico";
+  if(p>=50)return"🔴 Gran Maestro";
+  if(p>=40)return"🟠 Maestro";
+  if(p>=30)return"🟣 Experto";
+  if(p>=20)return"🔵 Avanzado";
+  if(p>=10)return"🟢 Trabajador";
+  return"⚪ Sin rango";
 }
 
 function obtenerRecompensas(p){
-const G=Math.floor(p/30),S=Math.floor((p%30)/10);
-let r="✨";
-for(let i=0;i<G;i++)r+="🌟";
-for(let i=0;i<S;i++)r+="⭐";
-if(p>=70)r+=" 🌌";
-if(p>=90)r+=" 🌈";
-return r;
+  let r="✨";
+  for(let i=0;i<Math.floor(p/30);i++)r+="🌟";
+  for(let i=0;i<Math.floor((p%30)/10);i++)r+="⭐";
+  if(p>=70)r+=" 🌌";
+  if(p>=90)r+=" 🌈";
+  return r;
 }
 
 function filtrarTabla(){
-const f=document.getElementById("filtroFecha").value;
-const n=(document.getElementById("buscador").value||"").toLowerCase();
-document.querySelectorAll("#tablaPuntos tr").forEach(tr=>{
-const F=tr.cells[0]?.innerText||"";
-const N=(tr.cells[1]?.innerText||"").toLowerCase();
-tr.style.display=(!f||F===f)&&(!n||N.includes(n))?"":"none";
-});
+  const f=document.getElementById("filtroFecha").value;
+  const n=document.getElementById("buscador").value.toLowerCase();
+
+  document.querySelectorAll("#tablaPuntos tr").forEach(tr=>{
+    const F=tr.cells[0]?.innerText||"";
+    const N=(tr.cells[1]?.innerText||"").toLowerCase();
+    tr.style.display=(!f||F===f)&&(!n||N.includes(n))?"":"none";
+  });
 }
 
-function parseCSVtoGVizLike(csv){
-const rows=csv.split(/\r?\n/).filter(Boolean).map(r=>{
-const out=[];let cur="",q=false;
-for(let i=0;i<r.length;i++){
-const ch=r[i],nx=r[i+1];
-if(ch=='"'&&nx=='"'){cur+='"';i++;continue}
-if(ch=='"'){q=!q;continue}
-if(ch==','&&!q){out.push(cur);cur="";continue}
-cur+=ch;
-}
-out.push(cur);
-return out;
-});
-const cols=rows[0];
-const data=rows.slice(1).map(r=>({c:cols.map((_,i)=>({v:r[i]||""}))}));
-return{table:{cols:cols.map(h=>({label:h})),rows:data}};
+function parseCSV(csv){
+  const rows=csv.split("\n").map(r=>r.split(","));
+  return rows;
 }
 
-async function fetchCSV(gid){
-const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
-const r=await fetch(url);
-return parseCSVtoGVizLike(await r.text());
+async function fetchSheet(gid){
+  const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
+  const res=await fetch(url);
+  return parseCSV(await res.text());
 }
 
-let STATE={rows:[],cols:[],idxNombre:0,dateCols:[]};
-let ASISTENCIA_MAP={};
+let asistencia={};
 
-function canonicalName(n){return n.toLowerCase().trim()}
+function clean(n){return n.toLowerCase().trim()}
 
-function buildAsistenciaMap(data){
-const map={};
-data.table.rows.forEach(r=>{
-const nombre=r.c[0]?.v||"";
-for(let i=1;i<data.table.cols.length;i++){
-const val=r.c[i]?.v;
-if(val==1){
-const fecha=data.table.cols[i].label;
-if(!map[fecha])map[fecha]=new Set();
-map[fecha].add(canonicalName(nombre));
+function buildAsistencia(data){
+  for(let i=1;i<data.length;i++){
+    const nombre=data[i][0];
+    for(let j=1;j<data[0].length;j++){
+      if(data[i][j]=="1"){
+        const fecha=data[0][j];
+        if(!asistencia[fecha])asistencia[fecha]=new Set();
+        asistencia[fecha].add(clean(nombre));
+      }
+    }
+  }
 }
-}
-});
-return map;
-}
+
+let puntosData=[];
 
 function render(){
-const tbody=document.getElementById("tablaPuntos");
-tbody.innerHTML="";
-const fecha=document.getElementById("filtroFecha").value||hoyISO();
+  const tbody=document.getElementById("tablaPuntos");
+  tbody.innerHTML="";
+  const fecha=document.getElementById("filtroFecha").value||hoyISO();
 
-STATE.rows.forEach(r=>{
-const nombre=r.c[STATE.idxNombre]?.v||"";
-const puntos=parseInt(r.c[1]?.v)||0;
-const asistencia=ASISTENCIA_MAP[fecha]?.has(canonicalName(nombre));
-if(!asistencia)return;
+  for(let i=1;i<puntosData.length;i++){
+    const nombre=puntosData[i][0];
+    const puntos=parseInt(puntosData[i][1])||0;
 
-tbody.innerHTML+=`
-<tr>
-<td>${fecha}</td>
-<td>${nombre}</td>
-<td>✅</td>
-<td>${puntos}</td>
-<td>${puntos>0?"✅":"❌"}</td>
-<td>${obtenerRango(puntos)}</td>
-<td>${obtenerRecompensas(puntos)}</td>
-</tr>`;
-});
+    if(!asistencia[fecha]?.has(clean(nombre)))continue;
+
+    tbody.innerHTML+=`
+    <tr>
+      <td>${fecha}</td>
+      <td>${nombre}</td>
+      <td>✅</td>
+      <td>${puntos}</td>
+      <td>${puntos>0?"✅":"❌"}</td>
+      <td>${obtenerRango(puntos)}</td>
+      <td>${obtenerRecompensas(puntos)}</td>
+    </tr>`;
+  }
 }
 
 async function cargar(){
-actualizarCabecera();
-document.getElementById("filtroFecha").value=hoyISO();
+  actualizarCabecera();
+  document.getElementById("filtroFecha").value=hoyISO();
 
-const puntos=await fetchCSV(GID_PUNTOS);
-STATE.rows=puntos.table.rows;
+  setStatus("Cargando datos...");
 
-try{
-const asistencia=await fetchCSV(GID_ASISTENCIA);
-ASISTENCIA_MAP=buildAsistenciaMap(asistencia);
-}catch(e){console.log("sin asistencia")}
+  puntosData=await fetchSheet(GID_PUNTOS);
 
-render();
+  try{
+    const asis=await fetchSheet(GID_ASISTENCIA);
+    buildAsistencia(asis);
+    setStatus("Datos cargados correctamente");
+  }catch{
+    setStatus("Puntos cargados, pero sin asistencia");
+  }
+
+  render();
 }
 
 cargar();
