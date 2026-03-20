@@ -47,27 +47,27 @@
   </table>
 
 <script>
-/* =========================
-   CONFIG CORRECTA
-   ========================= */
 const SHEET_ID="1kapF-_njiRV8aTTADXhOprHvoUFXg74lE93wl54j4qI";
 
 const GID_PUNTOS="0";
 const GID_ASISTENCIA="1488687689";
 const GID_REG_TRABAJOS="1051341664";
 const GID_PRESETS="1645658317";
-/* ========================= */
+
+let puntosData=[];
+let asistenciaData=[];
+let asistencia={};
 
 function setStatus(t){document.getElementById("status").textContent=t}
 
 function hoyISO(){
   const d=new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
 function actualizarCabecera(){
-  document.getElementById("fecha").innerHTML=
-  `📅 Hoy es: <b>${new Date().toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</b>`
+  document.getElementById("fecha").innerHTML =
+    `📅 Hoy es: <b>${new Date().toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</b>`;
 }
 
 function obtenerRango(p){
@@ -94,7 +94,7 @@ function obtenerRecompensas(p){
 
 function filtrarTabla(){
   const f=document.getElementById("filtroFecha").value;
-  const n=document.getElementById("buscador").value.toLowerCase();
+  const n=(document.getElementById("buscador").value||"").toLowerCase().trim();
 
   document.querySelectorAll("#tablaPuntos tr").forEach(tr=>{
     const F=tr.cells[0]?.innerText||"";
@@ -103,77 +103,197 @@ function filtrarTabla(){
   });
 }
 
+function clean(n){
+  return String(n||"")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/\s+/g," ")
+    .trim();
+}
+
 function parseCSV(csv){
-  const rows=csv.split("\n").map(r=>r.split(","));
+  const rows=[];
+  let row=[], cell="", inQuotes=false;
+
+  for(let i=0;i<csv.length;i++){
+    const ch=csv[i];
+    const next=csv[i+1];
+
+    if(ch === '"'){
+      if(inQuotes && next === '"'){
+        cell += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if(ch === ',' && !inQuotes){
+      row.push(cell);
+      cell = "";
+    } else if((ch === '\n' || ch === '\r') && !inQuotes){
+      if(ch === '\r' && next === '\n') i++;
+      row.push(cell);
+      if(row.some(x => String(x).trim() !== "")) rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += ch;
+    }
+  }
+
+  row.push(cell);
+  if(row.some(x => String(x).trim() !== "")) rows.push(row);
+
   return rows;
 }
 
 async function fetchSheet(gid){
   const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
   const res=await fetch(url);
-  return parseCSV(await res.text());
+  if(!res.ok) throw new Error("HTTP "+res.status);
+  const text=await res.text();
+  return parseCSV(text);
 }
 
-let asistencia={};
+function buscarColumnaFecha(headers, fechaISO){
+  if(!headers || !headers.length) return -1;
 
-function clean(n){return n.toLowerCase().trim()}
+  const [y,m,d]=fechaISO.split("-");
+  const opciones = [
+    fechaISO,
+    `${d}/${m}/${y}`,
+    `${d}-${m}-${y}`,
+    `${y}/${m}/${d}`,
+    `${d}/${m}/${String(y).slice(2)}`,
+    `${d}-${m}-${String(y).slice(2)}`
+  ].map(x=>x.trim());
 
-function buildAsistencia(data){
-  for(let i=1;i<data.length;i++){
-    const nombre=data[i][0];
-    for(let j=1;j<data[0].length;j++){
-      if(data[i][j]=="1"){
-        const fecha=data[0][j];
-        if(!asistencia[fecha])asistencia[fecha]=new Set();
+  for(let i=0;i<headers.length;i++){
+    const h=String(headers[i]||"").trim();
+    if(opciones.includes(h)) return i;
+  }
+  return -1;
+}
+
+function buildAsistencia(){
+  asistencia = {};
+  if(!asistenciaData.length) return;
+
+  const headers = asistenciaData[0];
+
+  for(let j=1;j<headers.length;j++){
+    const fecha = String(headers[j]||"").trim();
+    if(!fecha) continue;
+
+    asistencia[fecha] = new Set();
+
+    for(let i=1;i<asistenciaData.length;i++){
+      const nombre = asistenciaData[i][0];
+      const valor = String(asistenciaData[i][j]||"").trim();
+      if(valor === "1"){
         asistencia[fecha].add(clean(nombre));
       }
     }
   }
 }
 
-let puntosData=[];
-
 function render(){
   const tbody=document.getElementById("tablaPuntos");
   tbody.innerHTML="";
-  const fecha=document.getElementById("filtroFecha").value||hoyISO();
+
+  if(!puntosData.length){
+    tbody.innerHTML=`<tr><td colspan="7">No hay datos de puntos</td></tr>`;
+    return;
+  }
+
+  const fechaISO = document.getElementById("filtroFecha").value || hoyISO();
+  const mostrarTodos = document.getElementById("mostrarTodos").checked;
+
+  const headersP = puntosData[0];
+  const colFechaPuntos = buscarColumnaFecha(headersP, fechaISO);
+
+  if(colFechaPuntos === -1){
+    tbody.innerHTML=`<tr><td colspan="7">No encontré esa fecha en la hoja de Puntos</td></tr>`;
+    setStatus(`No encontré la fecha ${fechaISO} en Puntos.`);
+    return;
+  }
+
+  let colFechaAsistencia = -1;
+  let keyAsistencia = null;
+
+  for(const k of Object.keys(asistencia)){
+    const idx = buscarColumnaFecha(["", k], fechaISO);
+    if(idx !== -1){
+      keyAsistencia = k;
+      colFechaAsistencia = 1;
+      break;
+    }
+  }
+
+  if(!keyAsistencia){
+    tbody.innerHTML=`<tr><td colspan="7">No encontré esa fecha en la hoja de Asistencia</td></tr>`;
+    setStatus(`No encontré la fecha ${fechaISO} en Asistencia.`);
+    return;
+  }
+
+  const presentes = asistencia[keyAsistencia] || new Set();
+  let encontrados = 0;
 
   for(let i=1;i<puntosData.length;i++){
-    const nombre=puntosData[i][0];
-    const puntos=parseInt(puntosData[i][1])||0;
+    const nombre = puntosData[i][0];
+    if(!nombre) continue;
 
-    if(!asistencia[fecha]?.has(clean(nombre)))continue;
+    const nombreLimpio = clean(nombre);
+    const asistio = presentes.has(nombreLimpio);
+    if(!asistio) continue;
 
-    tbody.innerHTML+=`
-    <tr>
-      <td>${fecha}</td>
-      <td>${nombre}</td>
-      <td>✅</td>
-      <td>${puntos}</td>
-      <td>${puntos>0?"✅":"❌"}</td>
-      <td>${obtenerRango(puntos)}</td>
-      <td>${obtenerRecompensas(puntos)}</td>
-    </tr>`;
+    let puntos = parseInt(String(puntosData[i][colFechaPuntos]||"").replace(/[^\d-]/g,""),10);
+    if(Number.isNaN(puntos)) puntos = 0;
+
+    if(puntos === 0 && !mostrarTodos) continue;
+
+    encontrados++;
+
+    tbody.innerHTML += `
+      <tr>
+        <td>${fechaISO}</td>
+        <td>${nombre}</td>
+        <td>✅ Sí</td>
+        <td>${puntos}</td>
+        <td>${puntos>0?"✅ Sí":"❌ No"}</td>
+        <td>${obtenerRango(puntos)}</td>
+        <td>${obtenerRecompensas(puntos)}</td>
+      </tr>
+    `;
   }
+
+  if(encontrados === 0){
+    tbody.innerHTML=`<tr><td colspan="7">No hubo alumnos para mostrar en esa fecha</td></tr>`;
+    setStatus(`La fecha existe, pero no hubo coincidencias entre asistencia y puntos.`);
+    return;
+  }
+
+  setStatus(`Mostrando ${encontrados} alumnos de la fecha ${fechaISO}.`);
+  filtrarTabla();
 }
 
 async function cargar(){
   actualizarCabecera();
-  document.getElementById("filtroFecha").value=hoyISO();
-
+  document.getElementById("filtroFecha").value = hoyISO();
   setStatus("Cargando datos...");
 
-  puntosData=await fetchSheet(GID_PUNTOS);
-
   try{
-    const asis=await fetchSheet(GID_ASISTENCIA);
-    buildAsistencia(asis);
-    setStatus("Datos cargados correctamente");
-  }catch{
-    setStatus("Puntos cargados, pero sin asistencia");
-  }
+    puntosData = await fetchSheet(GID_PUNTOS);
+    asistenciaData = await fetchSheet(GID_ASISTENCIA);
+    buildAsistencia();
 
-  render();
+    setStatus("Datos cargados correctamente.");
+    render();
+  }catch(e){
+    console.error(e);
+    setStatus("Error al cargar. Revisa permisos de la hoja o formato.");
+    document.getElementById("tablaPuntos").innerHTML =
+      `<tr><td colspan="7">Error al cargar datos</td></tr>`;
+  }
 }
 
 cargar();
